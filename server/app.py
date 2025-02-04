@@ -16,47 +16,47 @@ db.init_app(app)
 
 @app.route('/messages')
 def messages():
-     messages = Message.query.order_by(Message.created_at.asc()).all()
-     return jsonify([msg.to_dict() for msg in messages])
-    
+    messages = Message.query.all()
+    return jsonify([message.to_dict() for message in messages])
 
 @app.route('/messages/<int:id>')
 def messages_by_id(id):
-    messages = Message.query.get(id)
-    if messages:
-        return jsonify(messages.to_dict())
-    else :
-     return (f'message not found')
+    message = Message.query.get(id)
+    if not message:
+        return '', 404
+    return message.to_dict()
 
-@app.route('/messages' ,methods=['POST'])
-def create_message():
-    data = request.get_json()
-    new_message = Message(body=data['body'], username=data['username'])
-    db.session.add(new_message)
+@app.route('/messages', methods=['POST'])
+def create_new_message():
+    body = request.json.get('body')
+    username = request.json.get('username')
+    message = Message(body=body, username=username)
+    db.session.add(message)
     db.session.commit()
-    return jsonify(new_message.to_dict()), 201
+    response = make_response(message.to_dict(), 201)
+    response.headers['Location'] = f'/messages/{message.id}'
+    return response
 
-# PATCH an existing message by ID
 @app.route('/messages/<int:id>', methods=['PATCH'])
 def update_message(id):
-    data = request.get_json()
-    message = Message.query.get(id)
+    message = db.session.get(Message, id)
     if message:
-        message.body = data.get('body', message.body)
+        message.body = request.json.get('body', message.body)
+        message.username = request.json.get('username', message.username)
         db.session.commit()
-        return jsonify(message.to_dict())
-    return jsonify({"error": "Message not found"}), 404
+        return jsonify(message.to_dict()), 200
+    else:
+        return jsonify({"error": "Message not found"}), 404
 
-# DELETE a message by ID
 @app.route('/messages/<int:id>', methods=['DELETE'])
 def delete_message(id):
-    message = Message.query.get(id)
+    message = db.session.get(Message, id)
     if message:
         db.session.delete(message)
         db.session.commit()
-        return jsonify({"message": "Message deleted"})
-    return jsonify({"error": "Message not found"}), 404
-
+        return jsonify(message.to_dict()), 200
+    else:
+        return jsonify({"error": "Message not found"}), 404
 
 
 if __name__ == '__main__':
